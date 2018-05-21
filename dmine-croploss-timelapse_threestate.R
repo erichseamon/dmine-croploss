@@ -58,7 +58,7 @@ statelist <- c("Idaho", "Washington", "Oregon")
 #dmineplots <- function(scen_state, startyear, endyear, dcause, Kommodity) {
 
 scen_state = "Idaho"
-startyear = "2001"
+startyear = "1989"
 endyear = "2015"
 dcause = "Drought"
 #Kommodity = "Wheat"
@@ -89,10 +89,37 @@ maskraster <- raster(paste("/dmine/data/USDA/agmesh-scenarios/", scen_state, "/n
 #--set tt outside of loop below
 tt1 <- colorRampPalette(c("white", "blue", "red"))
 setwd(yeardir)
-it <- paste("2001_2015_usda_gridmet_", scen_state, sep="")
-zaa <- as.data.frame(read.csv(it, strip.white = TRUE))
-DTz1 <- data.table(zaa)
-DTz1 <- subset(DTz1, damagecause == dcause) 
+
+setwd("/dmine/data/USDA/agmesh-scenarios/Allstates/")
+
+
+temp = list.files(pattern=paste("_summary", sep=""))
+myfiles = lapply(temp, read.csv, header = TRUE)
+ziggy.df <- do.call(rbind , myfiles)
+it <- as.data.frame(ziggy.df)
+
+nineteen89 <- subset(it, year <= 2000)
+twothousand <- subset(it, year >= 2001)
+colnames(nineteen89) <- c("X", "year", "statecode", "state", "countycode", "county", "commoditycode", "commodity", "insuranceplancode", "insurancename", "stagecode", "damagecausecode", "damagecause", "monthcode", "month", "loss", "acres")
+
+movetolast <- function(data, move) {
+  data[c(setdiff(names(data), move), move)]
+}
+
+movetolast(twothousand, c("loss"))
+movetolast(nineteen89, c("loss"))
+
+it <- rbind(nineteen89, twothousand)
+
+
+
+
+#it <- paste("2001_2015_usda_gridmet_", scen_state, sep="")
+zaa = it
+it$damagecause <-trimws(it$damagecause)
+#zaa <- as.data.frame(read.csv(it, strip.white = TRUE))
+#DTz1 <- data.table(zaa)
+DTz1 <- subset(it, damagecause == "Drought") 
 #DTz <- subset(DTz, commodity == kkk)
 DTza1 <- as.data.frame(subset(DTz1, loss > 0))
 DTzmax1 <- max(DTza1$loss)
@@ -108,7 +135,8 @@ years <- c(startyear:endyear)
 for (j in years) {
 setwd(yeardir)
   
-i <- paste("2001_2015_usda_gridmet_", scen_state, sep="")
+#i <- paste("2001_2015_usda_gridmet_", scen_state, sep="")
+i <- it
 #i <- paste(j, "_monthly_usda_gridmet_post2001_", scen_state, sep="")
 #i <- paste(input$year, ".", input$month, ".", input$commodity, ".csv", sep="")
 
@@ -120,9 +148,11 @@ i <- paste("2001_2015_usda_gridmet_", scen_state, sep="")
 #counties <- subset(counties, STATE_NAME %in% scen_state)
 #counties <- counties[grep(scen_state, counties@data$STATE_NAME),]
 setwd(yeardir)
-x <- as.data.frame(read.csv(i, strip.white = TRUE))
+x <- i
+#x <- as.data.frame(read.csv(i, strip.white = TRUE))
 x <- subset(x, monthcode != "NA")
 x <- subset(x, commoditycode != 88)
+x <- subset(x, monthcode != 0)
 
 x <- subset(x, year == j)
 
@@ -136,9 +166,11 @@ for (kkk in uniquecomm) {
   
   tt1 <- colorRampPalette(c("white", "blue", "red"))
   setwd(yeardir)
-  it <- paste("2001_2015_usda_gridmet_", scen_state, sep="")
-  zaa <- as.data.frame(read.csv(it, strip.white = TRUE))
-  DTz1 <- data.table(zaa)
+  #it <- paste("2001_2015_usda_gridmet_", scen_state, sep="")
+  #zaa <- as.data.frame(read.csv(it, strip.white = TRUE))
+  zaa <- it
+  
+  #DTz1 <- data.table(zaa)
   DTz1 <- subset(DTz1, damagecause == dcause) 
   DTz1 <- subset(DTz1, commodity == kkk)
   
@@ -186,7 +218,8 @@ DT <- data.table(x)
 
 # DTnew3 <- DT
 #  DTnew3$commodity <- DTnew3$commodity_new
-
+DT$commodity <- trimws(DT$commodity)
+DT$county <- trimws(DT$county)
 #--change to lowercase DT2!!
 #DT2 <- DT
 DT2 <- subset(DT, damagecause == dcause) #---set for drought!!!
@@ -215,6 +248,7 @@ names(counties)[1] <- "county"
 
 #colnames(u) <- c("NAME")
 #z <- cbind(u,DT)
+DT2loss$county <- trimws(DT2loss$county)
 m <- merge(counties, DT2loss, by='county')
 #names(m)[7] <- "acres" 
 
@@ -247,8 +281,12 @@ len3 <- tt(len <- length(m$loss))
 
 #len4 <- tt(nrow(as.data.frame(subset(m, loss > 0))))
 #--create a color vector for ALL commodity drought values for all years.  used for the gradient legend and coloring
-za <- as.data.frame(read.csv(i, strip.white = TRUE))
+#za <- as.data.frame(read.csv(i, strip.white = TRUE))
+za <- i
 DTz <- data.table(za)
+DTz$commodity <- trimws(DTz$commodity)
+DTz$county <- trimws(DTz$county)
+
 DTz <- subset(DTz, damagecause == dcause) 
 DTz <- subset(DTz, commodity == kkk)
 
@@ -356,7 +394,8 @@ nn <- str_pad(n, 2, pad = "0")
 #m <- cbind(m$LOSS, newmatrix)
 #midpoints <- barplot(mz$LOSS)
 kkk <- gsub("\\s+","\\",kkk)
-png(paste("/dmine/data/USDA/agmesh-scenarios/", scen_state, "/month_png/drought/", j, "_", nn, "_", kkk,  "_plot.png", sep=""))
+##png(paste("/dmine/data/USDA/agmesh-scenarios/", scen_state, "/month_png/drought/", j, "_", nn, "_", kkk,  "_plot.png", sep=""))
+png(paste("/dmine/data/USDA/agmesh-scenarios/PNW/month_png/allcommodities/drought/", j, "_", nn, "_", kkk,  "_plot.png", sep=""), res=200, width = 1280, height = 1280)
 
 
 par(mar=c(3,3,3,2)+1)
@@ -373,20 +412,22 @@ layout(matrix(c(1,2,3,3), 2, 2, byrow = TRUE),
 
 #------------------------begin barplot for animation
 
-yeardir2 <- paste("/dmine/data/USDA/agmesh-scenarios/", "Idaho", "/summaries/", sep="")
-ix <- paste("2001_2015_usda_gridmet_", "Idaho", sep="")
-setwd(yeardir2)
-DT2x <- as.data.frame(read.csv(ix, strip.white = TRUE))
+#yeardir2 <- paste("/dmine/data/USDA/agmesh-scenarios/", "Idaho", "/summaries/", sep="")
+#ix <- paste("2001_2015_usda_gridmet_", "Idaho", sep="")
+ix <- it
+DT2x <- it
+#setwd(yeardir2)
+#DT2x <- as.data.frame(read.csv(ix, strip.white = TRUE))
 
 #---creating vector for every year and month for full barchart with 0 months.
 
-N1 = 2001
+N1 = 1989
 N2 = 2015
-N3 = 15
+N3 = 27
 newmatrixcomm <- matrix(NA, nrow=N3 * 12, ncol=1)
 nmc <- c(1:(N3*12))
 mon <- c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12") 
-yr <- c(2001:2015)
+yr <- c(1989:2015)
 
 tt <- 1
 for (iii in yr) {
@@ -429,6 +470,7 @@ DT2x$commodity <- gsub(" ", "", DT2x$commodity, fixed = TRUE)
 
 DT2x <- subset(DT2x, damagecause == dcause )
 DT2x <- subset(DT2x, commodity == kkk)
+DT2x <- subset(DT2x, monthcode != 0)
 DT2x <- data.table(DT2x)
 
 ##--merge
@@ -479,7 +521,19 @@ par(mar=c(6,8,5,5))
 par(lty = 1) 
 
 #--fix barplot xaxis names
-baryears <- c("2001", "", "", "", "", "", "", "", "", "", "", "", 
+baryears <- c("1989", "", "", "", "", "", "", "", "", "", "", "",
+              "1990", "", "", "", "", "", "", "", "", "", "", "",
+              "1991", "", "", "", "", "", "", "", "", "", "", "",
+              "1992", "", "", "", "", "", "", "", "", "", "", "",
+              "1993", "", "", "", "", "", "", "", "", "", "", "",
+              "1994", "", "", "", "", "", "", "", "", "", "", "",
+              "1995", "", "", "", "", "", "", "", "", "", "", "",
+              "1996", "", "", "", "", "", "", "", "", "", "", "",
+              "1997", "", "", "", "", "", "", "", "", "", "", "",
+              "1998", "", "", "", "", "", "", "", "", "", "", "",
+              "1999", "", "", "", "", "", "", "", "", "", "", "",
+              "2000", "", "", "", "", "", "", "", "", "", "", "",
+              "2001", "", "", "", "", "", "", "", "", "", "", "", 
               "2002", "", "", "", "", "", "", "", "", "", "", "", 
               "2003", "", "", "", "", "", "", "", "", "", "", "", 
               "2004", "", "", "", "", "", "", "", "", "", "", "", 
@@ -544,9 +598,10 @@ dev.off()
                      len3 <- tt(len <- length(m$loss))
                      #len4 <- tt(len <- length(m$acres))
                      orderedcolors2a <- tt(length(m$loss))
-                     
-                     za <- as.data.frame(read.csv(i, strip.white = TRUE))
-                     DTz <- data.table(za)
+                     za <- i
+                     #za <- as.data.frame(read.csv(i, strip.white = TRUE))
+                     #DTz <- data.table(za)
+                     DTz <- za
                      DTz <- subset(DTz, damagecause == dcause) 
                      DTz <- subset(DTz, commodity == kkk)
                      DTza <- as.data.frame(subset(DTz, loss > 0))
@@ -619,23 +674,25 @@ dev.off()
                      #------------------------begin barplot for animation
                      
                      yeardir2 <- paste("/dmine/data/USDA/agmesh-scenarios/", "Idaho", "/summaries/", sep="")
-                     ix <- paste("2001_2015_usda_gridmet_", "Idaho", sep="")
-                     setwd(yeardir2)
-                     DT2x <- as.data.frame(read.csv(ix, strip.white = TRUE))
-                     DT2x <- subset(DT2x, month = "JAN" & "FEB")
+                     #ix <- paste("2001_2015_usda_gridmet_", "Idaho", sep="")
+                     #setwd(yeardir2)
+                     ix = it
+                     DT2x <- as.data.frame(ix)
+                     #DT2x <- as.data.frame(read.csv(ix, strip.white = TRUE))
+                     #DT2x <- subset(DT2x, month = "JAN" & "FEB")
                   
                      
                      kkkk <- gsub(" ", "", kkk, fixed = TRUE)
                      
                      #---creating vector for every year and month for full barchart with 0 months.
                      
-                     N1 = 2001
+                     N1 = 1989
                      N2 = 2015
-                     N3 = 15
+                     N3 = 27
                      newmatrixcomm <- matrix(NA, nrow=N3 * 12, ncol=1)
                      nmc <- c(1:(N3*12))
                      mon <- c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12") 
-                     yr <- c(2001:2015)
+                     yr <- c(1989:2015)
                      
                      tt <- 1
                      for (iii in yr) {
@@ -671,6 +728,7 @@ dev.off()
                      
                      DT2x <- subset(DT2x, damagecause == dcause )
                      DT2x <- subset(DT2x, commodity == kkk)
+                     DT2x <- subset(DT2x, monthcode != 0)
                      DT2x <- data.table(DT2x)
                      
                      ##--merge
@@ -720,7 +778,9 @@ dev.off()
                      #m <- cbind(m$LOSS, newmatrix)
                      #midpoints <- barplot(mz$LOSS)
                      kkk <- gsub("\\s+","\\",kkk)
-                     png(paste("/dmine/data/USDA/agmesh-scenarios/", scen_state, "/month_png/drought/", j, "_", nn, "_", kkk,  "_plot.png", sep=""))
+                     ##png(paste("/dmine/data/USDA/agmesh-scenarios/", scen_state, "/month_png/drought/", j, "_", nn, "_", kkk,  "_plot.png", sep=""))
+                     png(paste("/dmine/data/USDA/agmesh-scenarios/PNW/month_png/allcommodities/drought/", j, "_", nn, "_", kkk,  "_plot.png", sep=""), res=200, width = 1280, height = 1280)
+                     
                      #par(mar=c(1,1,1,1))
                      #par(mar=c(3,3,3,2)+1)
                      #par(mfrow=c(1,1))
@@ -763,7 +823,7 @@ dev.off()
                      if (DTzsum_maxz == 0) {
                        
                        legend_image <- as.raster(matrix(rev(len4a_out), ncol=1))
-                       plot(c(0,3),c(0,DTzmax1),type = 'n', axes = F,xlab = '', ylab = '', main = 'Loss $ Range: 2001-2015')
+                       plot(c(0,3),c(0,DTzmax1),type = 'n', axes = FALSE,xlab = '', ylab = '', main = 'Loss $ Range: 2001-2015')
                        #text(x=1.5, y = c(0,5), labels = c(0,5))
                        text(x=1.5, y = seq(0,DTzmax1,l=5), labels = seq(0,DTzmax1,l=5))
                        rasterImage(legend_image, 0, 0, .35, DTzmax1)
@@ -771,7 +831,7 @@ dev.off()
                      } else {
                        
                        legend_image <- as.raster(matrix(rev(len4a_out), ncol=1))
-                       plot(c(0,3),c(0,DTzsum_maxz),type = 'n', axes = F,xlab = '', ylab = '', main = 'Commodity Loss $ Range: 2001-2015')
+                       plot(c(0,3),c(0,DTzsum_maxz),type = 'n', axes = FALSE,xlab = '', ylab = '', main = 'Loss $ Range: 2001-2015')
                        text(x=1.5, y = c(0,5), labels = c(0,5))
                        text(x=1.5, y = seq(0,DTzsum_maxz,l=5), labels = seq(0,DTzsum_maxz,l=5))
                        rasterImage(legend_image, 0, 0, .35, DTzsum_maxz)
@@ -786,7 +846,19 @@ dev.off()
                        par(lty = 1) 
                        
                        #--fix barplot xaxis names
-                       baryears <- c("2001", "", "", "", "", "", "", "", "", "", "", "", 
+                       baryears <- c("1989", "", "", "", "", "", "", "", "", "", "", "",
+                                     "1990", "", "", "", "", "", "", "", "", "", "", "",
+                                     "1991", "", "", "", "", "", "", "", "", "", "", "",
+                                     "1992", "", "", "", "", "", "", "", "", "", "", "",
+                                     "1993", "", "", "", "", "", "", "", "", "", "", "",
+                                     "1994", "", "", "", "", "", "", "", "", "", "", "",
+                                     "1995", "", "", "", "", "", "", "", "", "", "", "",
+                                     "1996", "", "", "", "", "", "", "", "", "", "", "",
+                                     "1997", "", "", "", "", "", "", "", "", "", "", "",
+                                     "1998", "", "", "", "", "", "", "", "", "", "", "",
+                                     "1999", "", "", "", "", "", "", "", "", "", "", "",
+                                     "2000", "", "", "", "", "", "", "", "", "", "", "",
+                                     "2001", "", "", "", "", "", "", "", "", "", "", "", 
                                      "2002", "", "", "", "", "", "", "", "", "", "", "", 
                                      "2003", "", "", "", "", "", "", "", "", "", "", "", 
                                      "2004", "", "", "", "", "", "", "", "", "", "", "", 
@@ -801,6 +873,7 @@ dev.off()
                                      "2013", "", "", "", "", "", "", "", "", "", "", "", 
                                      "2014", "", "", "", "", "", "", "", "", "", "", "", 
                                      "2015", "", "", "", "", "", "", "", "", "", "", "")
+                       
                        
                        nxxsd <- sd(nxx$loss)
                        cols <- ifelse(nxx$loss > nxxsd, "red","blue")
